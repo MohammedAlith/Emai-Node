@@ -15,7 +15,10 @@ const client = new Client({
 });
 
 // Enable CORS
-app.use(cors({ origin: process.env.FRONTEND_URL, methods: ["GET", "POST"] }));
+app.use(cors({ origin: [
+      "http://localhost:3000",                 
+      "https://email-frontend-two-eta.vercel.app" 
+    ], methods: ["GET", "POST"] }));
 app.use(express.json());
 
 // Multer config for file uploads
