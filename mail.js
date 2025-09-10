@@ -29,6 +29,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+
+app.get("/", (req, res) => {
+  res.send("Server is running ");
+});
+
+
 // Email route
 app.post("/send-email", upload.array("attachments", 10), async (req, res) => {
   const { to, subject, text } = req.body;
