@@ -123,7 +123,7 @@ const fetchUnreadEmails = async (max = 10) => {
       userId: "me",
       maxResults: max,
       q: "is:unread",
-       q: "label:sent"
+      
     });
 
     const messages = res.data.messages || [];
