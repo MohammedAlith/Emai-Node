@@ -36,21 +36,24 @@ app.get("/", async (req, res) => {
 
     if (!tokens.refresh_token) {
       return res.send(`
-        ⚠️ No refresh token received. 
+         No refresh token received. 
         Try revoking previous access in your Google account and retry.
       `);
     }
 
     res.send(`
-      ✅ Success! Your refresh token is: <br>
+       Success! Your refresh token is: <br>
       <pre>${tokens.refresh_token}</pre>
       <br>Copy this and save it into your .env as:<br>
       <pre>GMAIL_REFRESH_TOKEN=${tokens.refresh_token}</pre>
     `);
   } catch (err) {
-    res.send("❌ Error retrieving tokens: " + err.message);
+    res.send("Error retrieving tokens: " + err.message);
   }
 });
+
+
+
 
 app.listen(8000, () => {
   console.log("Server running at http://localhost:8000");

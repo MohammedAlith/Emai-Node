@@ -11,15 +11,13 @@ const readXlsxFile = require("read-excel-file/node");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// ----------------------
-// Neon DB Setup
-// ----------------------
+
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 client.connect()
   .then(() => console.log("Neon client connected"))
   .catch(err => console.error("Neon connection error:", err));
 
-// Create tables if they don't exist
+
 const createTables = async () => {
   await client.query(`
     CREATE TABLE IF NOT EXISTS sent_emails (
@@ -45,9 +43,7 @@ const createTables = async () => {
   console.log("Database tables are ready");
 };
 
-// ----------------------
-// Middleware
-// ----------------------
+
 app.use(cors({
   origin: [
     "http://localhost:3000",
@@ -57,9 +53,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ----------------------
-// Multer setup for file uploads
-// ----------------------
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = "uploads";
@@ -70,9 +64,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ----------------------
-// Nodemailer transporter
-// ----------------------
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -81,9 +73,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ----------------------
-// Google Gmail API Setup
-// ----------------------
+
 const oAuth2Client = new google.auth.OAuth2(
   process.env.GMAIL_CLIENT_ID,
   process.env.GMAIL_CLIENT_SECRET,
@@ -96,7 +86,7 @@ oAuth2Client.setCredentials({
 
 const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-// Helper: get email body
+
 const getBody = (part) => {
   if (!part) return "";
   if (part.body?.data) return Buffer.from(part.body.data, "base64").toString("utf-8");
@@ -109,9 +99,6 @@ const getBody = (part) => {
   return "";
 };
 
-// ----------------------
-// Fetch Unread Gmail Emails (Read-Only)
-// ----------------------
 const fetchUnreadEmails = async (max = 10) => {
   try {
     const res = await gmail.users.messages.list({
@@ -138,7 +125,7 @@ const fetchUnreadEmails = async (max = 10) => {
       const subject = headers.find(h => h.name === "Subject")?.value || "";
       const dateHeader = headers.find(h => h.name === "Date")?.value || "";
 
-      // Convert Gmail date to ISO for Postgres
+ 
       let dateISO = null;
       if (dateHeader) {
         const parsedDate = new Date(dateHeader);
@@ -149,7 +136,6 @@ const fetchUnreadEmails = async (max = 10) => {
       const email = { id: msg.id, from, to, subject, body, date: dateISO };
       emails.push(email);
 
-      // Insert into DB (without modifying Gmail)
       await client.query(
         `INSERT INTO received_emails (id, sender, recipient, subject, body, received_at)
          VALUES ($1,$2,$3,$4,$5,$6)
@@ -165,17 +151,13 @@ const fetchUnreadEmails = async (max = 10) => {
   }
 };
 
-// ----------------------
-// API Endpoints
-// ----------------------
 
-// Fetch unread Gmail emails
 app.get("/emails", async (req, res) => {
   const emails = await fetchUnreadEmails(10);
   res.json(emails);
 });
 
-// Send single email
+
 app.post("/send-email", upload.array("attachments", 10), async (req, res) => {
   const { to, subject, text } = req.body;
   if (!to || !subject || !text) return res.status(400).json({ success: false, message: "Missing fields" });
@@ -197,7 +179,7 @@ app.post("/send-email", upload.array("attachments", 10), async (req, res) => {
   }
 });
 
-// Bulk send from Excel
+
 app.post("/import-excel", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
 
