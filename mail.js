@@ -11,13 +11,30 @@ const readXlsxFile = require("read-excel-file/node");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// ------------------------
+// Check for required env variables
+const requiredEnv = [
+  "DATABASE_URL",
+  "EMAIL_USER",
+  "EMAIL_PASS",
+  "GMAIL_CLIENT_ID",
+  "GMAIL_CLIENT_SECRET",
+  "GMAIL_REDIRECT_URI",
+  "GMAIL_REFRESH_TOKEN",
+];
 
+let missingEnv = requiredEnv.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.error("Missing environment variables:", missingEnv.join(", "));
+}
+
+// ------------------------
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 client.connect()
   .then(() => console.log("Neon client connected"))
-  .catch(err => console.error("Neon connection error:", err));
+  .catch(err => console.error("Neon connection error:", err.message));
 
-
+// ------------------------
 const createTables = async () => {
   await client.query(`
     CREATE TABLE IF NOT EXISTS sent_emails (
@@ -43,7 +60,7 @@ const createTables = async () => {
   console.log("Database tables are ready");
 };
 
-
+// ------------------------
 app.use(cors({
   origin: [
     "http://localhost:3000",
@@ -53,7 +70,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-
+// ------------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = "uploads";
@@ -64,7 +81,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-
+// ------------------------
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -73,7 +90,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-
+// ------------------------
 const oAuth2Client = new google.auth.OAuth2(
   process.env.GMAIL_CLIENT_ID,
   process.env.GMAIL_CLIENT_SECRET,
@@ -86,7 +103,7 @@ oAuth2Client.setCredentials({
 
 const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-
+// ------------------------
 const getBody = (part) => {
   if (!part) return "";
   if (part.body?.data) return Buffer.from(part.body.data, "base64").toString("utf-8");
@@ -99,12 +116,14 @@ const getBody = (part) => {
   return "";
 };
 
+// ------------------------
 const fetchUnreadEmails = async (max = 10) => {
   try {
     const res = await gmail.users.messages.list({
       userId: "me",
       maxResults: max,
       q: "is:unread",
+       q: "label:sent"
     });
 
     const messages = res.data.messages || [];
@@ -125,7 +144,6 @@ const fetchUnreadEmails = async (max = 10) => {
       const subject = headers.find(h => h.name === "Subject")?.value || "";
       const dateHeader = headers.find(h => h.name === "Date")?.value || "";
 
- 
       let dateISO = null;
       if (dateHeader) {
         const parsedDate = new Date(dateHeader);
@@ -151,13 +169,13 @@ const fetchUnreadEmails = async (max = 10) => {
   }
 };
 
-
+// ------------------------
 app.get("/emails", async (req, res) => {
   const emails = await fetchUnreadEmails(10);
   res.json(emails);
 });
 
-
+// ------------------------
 app.post("/send-email", upload.array("attachments", 10), async (req, res) => {
   const { to, subject, text } = req.body;
   if (!to || !subject || !text) return res.status(400).json({ success: false, message: "Missing fields" });
@@ -179,13 +197,13 @@ app.post("/send-email", upload.array("attachments", 10), async (req, res) => {
   }
 });
 
-
+// ------------------------
 app.post("/import-excel", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
 
   try {
     const rows = await readXlsxFile(req.file.path);
-    const header = rows.shift(); // remove header
+    rows.shift(); // remove header
     let sentCount = 0;
 
     for (const row of rows) {
@@ -209,7 +227,7 @@ app.post("/import-excel", upload.single("file"), async (req, res) => {
   }
 });
 
-// ----------------------
+// ------------------------
 app.listen(PORT, async () => {
   try {
     await createTables();
